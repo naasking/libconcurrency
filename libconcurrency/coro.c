@@ -223,7 +223,7 @@ static void _coro_resume_with(size_t empty, size_t sz)
 }
 
 /*
- * The stack poll uses some hysterisis to avoid thrashing. We grow the stack if
+ * The stack poll uses some hysteresis to avoid thrashing. We grow the stack if
  * there's less than STACK_TGROW bytes left in the current stack, and we only shrink
  * if there's more than STACK_TSHRINK empty.
  */
