@@ -19,7 +19,7 @@ typedef jmp_buf _ctxt;
 #define _rstr_and_jmp(c) _longjmp(c, 1)
 
 #define SP_ALIGN(sp) sp
-//#define SP_ALIGN(sp) (sp + sp % 16)
+/*#define SP_ALIGN(sp) (sp + sp % 16)*/
 
 /* the list of offsets in jmp_buf to be adjusted */
 /* # of offsets cannot be greater than jmp_buf */
@@ -32,6 +32,7 @@ static int _stack_grows_up;
 /* the offset of the beginning of the stack frame in a function */
 static ptrdiff_t _frame_offset;
 
+/* This probing code is derived from Douglas Jones' user thread library */
 struct _probe_data {
 	intptr_t low_bound;		/* below probe on stack */
 	intptr_t probe_local;	/* local to probe on stack */
