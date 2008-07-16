@@ -9,14 +9,7 @@
  * * termination of a coroutine without explicit control transfer returns control
  *   to the coroutine which initialized the coro library.
  *
- * Open Problems:
- * 1. stack overflow is an implicit call/1cc; is there a co-routine equivalent? Yes:
- *    re-allocate the stack segment, copy the data, reset the sp in the ctxt, and
- *    call the coroutine. Circular dependency though: we are using the stack, but we
- *    reallocate it while using it.
- *
  * Todo:
- * 0. Probing code to extract the offsets needed for switching contexts.
  * 1. Co-routines must be integrated with any VProc/kernel-thread interface, since
  *    an invoked co-routine might be running on another cpu. A coro invoker must 
  *    check that the target vproc is the same as the current vproc; if not, queue the
@@ -27,13 +20,6 @@
  *    http://www.cs.cmu.edu/~acw/15740/proposal.html
  * 3. Provide an interface to register a coroutine for any errors generated. This is
  *    a type of general Keeper, or exception handling.
- *
- * Questions:
- * 1. Should coro be implemented from within the language via the JIT/compiler? 
- *    This may enable more specialized versions of the call function, for ints,
- *    floats, etc., and it would perform better since it's more low-level. We can
- *    use the calling convention to specify which args can be passed in registers
- *    when switching contexts.
  */
 
 #include <stdlib.h>
