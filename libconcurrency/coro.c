@@ -185,7 +185,7 @@ coro coro_clone(coro c)
 	cnew->stack_base = stack_base;
 	cnew->stack_size = stack_sz;
 	/* copy the context then the stack data */
-	memcpy(&cnew->ctxt, &c->ctxt, offsetof(struct _coro, start));
+	memcpy(cnew, c, sizeof(struct _coro));
 	memcpy((void *)stack_base, (void *)c->stack_base, stack_sz);
 	/* ensure new context references new stack */
 	_coro_rebase(cnew, c->stack_base, stack_base);
