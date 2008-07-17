@@ -22,6 +22,7 @@
  *    a type of general Keeper, or exception handling.
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -206,12 +207,14 @@ void coro_free(coro c)
  *  4. rebase the context using the new stack
  *  5. restore the context with the new stack
  */
-static void _coro_resume_with(size_t empty, size_t sz)
+static void _coro_resume_with(size_t sz)
 {
 	/* allocate bigger stack */
 	intptr_t old_sp = _cur->stack_base;
 	void * new_sp = malloc(sz);
-	memcpy(new_sp, (void *)old_sp, _cur->stack_size - empty);
+	memcpy(new_sp, (void *)old_sp, _cur->stack_size);
+	_cur->stack_base = (intptr_t)new_sp;
+	_cur->stack_size = sz;
 	/* save the current context; execution resumes here with new stack */
 	if (!_save_and_resumed(_cur->ctxt))
 	{
@@ -238,10 +241,10 @@ void coro_poll()
 
 	if (empty < STACK_TGROW)
 	{	/* grow stack */
-		_coro_resume_with(empty, stack_size + STACK_ADJ);
+		_coro_resume_with(stack_size + STACK_ADJ);
 	}
 	else if (empty > STACK_TSHRINK)
 	{	/* shrink stack */
-		_coro_resume_with(empty, stack_size - STACK_ADJ);
+		_coro_resume_with(stack_size - STACK_ADJ);
 	}
 }
