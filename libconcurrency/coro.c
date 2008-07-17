@@ -11,7 +11,7 @@
  *
  * Todo:
  * 1. Co-routines must be integrated with any VProc/kernel-thread interface, since
- *    an invoked co-routine might be running on another cpu. A coro invoker must 
+ *    an invoked co-routine might be running on another cpu. A coro invoker must
  *    check that the target vproc is the same as the current vproc; if not, queue the
  *    invoker on the target vproc using an atomic op.
  * 2. VCpu should implement work-stealing, ie. when its run queue is exhausted, it
@@ -107,7 +107,7 @@ void _coro_rebase(coro c, intptr_t local_sp, intptr_t new_sp)
 }
 
 /*
- * This function invokes the start function of the coroutine when the 
+ * This function invokes the start function of the coroutine when the
  * coroutine is first called. If it was called from coro_new, then it sets
  * up the stack and initializes the saved context.
  */
@@ -198,7 +198,7 @@ void coro_free(coro c)
 	free(c);
 }
 
-/* 
+/*
  * Resume execution with a new stack:
  *  1. allocate a new stack
  *  2. copy all relevant data
@@ -233,7 +233,7 @@ void coro_poll()
 	/* check the current stack pointer */
 	size_t stack_size = _cur->stack_size;
 	size_t empty = (_stack_grows_up
-		? stack_size - (intptr_t)&empty - _cur->stack_base
+		? stack_size - ((intptr_t)&empty - _cur->stack_base)
 		: (intptr_t)&empty - _cur->stack_base);
 
 	if (empty < STACK_TGROW)
