@@ -171,11 +171,11 @@ coro coro_clone(coro c)
 	coro cnew = (coro)malloc(sizeof(struct _coro));
 	size_t sz = c->env_size;
 	void * env = malloc(sz);
-	cnew->env = env;
-	cnew->env_size = sz;
 	/* copy the context then the stack data */
 	memcpy(cnew, c, sizeof(struct _coro));
 	memcpy(env, c->env, sz);
+	cnew->env = env;
+	cnew->env_size = sz;
 	return cnew;
 }
 
