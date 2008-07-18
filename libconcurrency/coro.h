@@ -40,7 +40,7 @@ const cvalue cnone = { NULL };
  * Initialize the coroutine library, returning a coroutine for the thread that called init.
  */
 EXPORT
-coro coro_init();
+coro coro_init(void * sp_base);
 
 /*
  * Create a new coroutine from the given function, and with the
@@ -61,8 +61,8 @@ cvalue coro_call(coro target, cvalue value);
 /*
  * Clone a given coroutine. This can be used to implement multishot continuations.
  */
-EXPORT
-coro coro_clone(coro c);
+/*EXPORT
+coro coro_clone(coro c);*/
 
 /*
  * Free the coroutine and return the space for the stack.
@@ -74,7 +74,7 @@ void coro_free(coro c);
  * Poll the current coroutine to ensure sufficient resources are allocated. This
  * should be called periodically to ensure a coroutine doesn't segfault.
  */
-EXPORT
-void coro_poll();
+/*EXPORT
+void coro_poll();*/
 
 #endif /* __CORO_H__ */

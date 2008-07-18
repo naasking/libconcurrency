@@ -30,24 +30,12 @@
 #include "tls.h"
 #include "ctxt.h"
 
-/*
- * These are thresholds used to grow and shrink the stack. They are scaled by
- * the size of various platform constants. STACK_TGROW is sized to allow
- * approximately 200 nested calls. On a 32-bit machine assuming 4 words of
- * overhead per call, 256 calls = 1024. If stack allocation is performed,
- * this will need to be increased.
- */
-#define STACK_TGROW 1024
-#define STACK_DEFAULT sizeof(intptr_t) * STACK_TGROW
-#define STACK_TSHRINK 2 * STACK_DEFAULT
-#define STACK_ADJ STACK_DEFAULT
-
 /* the coroutine structure */
 struct _coro {
 	_ctxt ctxt;
 	_entry start;
-	intptr_t stack_base;
-	size_t stack_size;
+	void ** env;
+	size_t env_size;
 };
 
 /*
@@ -58,6 +46,7 @@ struct _coro {
 THREAD_LOCAL volatile coro _cur;
 THREAD_LOCAL volatile cvalue _value;
 THREAD_LOCAL struct _coro _on_exit;
+THREAD_LOCAL static intptr_t _sp_base;
 
 /*
  * We probe the current machine and extract the data needed to modify the
@@ -65,45 +54,47 @@ THREAD_LOCAL struct _coro _on_exit;
  * executing coroutine.
  */
 EXPORT
-coro coro_init()
+coro coro_init(void * sp_base)
 {
-	_probe_arch();
+	_infer_stack_direction();
+	_sp_base = (intptr_t)sp_base;
 	_cur = &_on_exit;
 	return _cur;
 }
 
-/*EXPORT
-coro coro_error()
+void _coro_save(coro to)
 {
-	coro c = (coro)malloc(sizeof(struct _coro));
-	c->stack_base = NULL;
-	c->stack_size = 0;
-	c->start = NULL;
-	if (!_save_and_resumed(c->ctxt))
-	{
-		_cur = c;
-	}
-	return _cur;
-}*/
-
-/* copy the old stack frame to the new stack frame */
-void _coro_cpframe(intptr_t local_sp, intptr_t new_sp)
-{
-	intptr_t src = local_sp - (_stack_grows_up ? _frame_offset : 0);
-	intptr_t dst = new_sp - (_stack_grows_up ? _frame_offset : 0);
-	/* copy local stack frame to the new stack */
-	memcpy((void *)dst, (void *)src, _frame_offset);
+	intptr_t mark = (intptr_t)&mark;
+	void * sp = (void *)(_stack_grows_up ? _sp_base : &mark);
+	size_t sz = (_stack_grows_up ? mark - _sp_base : _sp_base - mark);
+	/* copy stack to a save buffer */
+	/*if (to->env != NULL) {
+		perror("Needed to free buffer!\n");
+		free(to->env);
+	}*/
+	to->env = malloc(sz);
+	to->env_size = sz;
+	memcpy(to->env, sp, sz);
 }
 
-/* rebase any values in saved state to the new stack */
-void _coro_rebase(coro c, intptr_t local_sp, intptr_t new_sp)
+void _coro_restore(size_t sz, intptr_t target)
 {
-	intptr_t * s = (intptr_t *)c->ctxt;
-	ptrdiff_t diff = new_sp - local_sp; /* subtract old base, and add new base */
-	int i;
-	for (i = 0; i < _offsets_len; ++i)
-	{
-		s[_offsets[i]] += diff;
+	intptr_t top = (intptr_t)&top;
+	if (_stack_grows_up && top > target || !_stack_grows_up && top < target) {
+		void * sp = (void *)(_stack_grows_up ? _sp_base : _sp_base - sz);
+		memcpy(sp, _cur->env, sz);
+		/*if (_cur->env == NULL) {
+			perror("Already freed!\n");
+		} else {
+			free(_cur->env);
+		}
+		_cur->env = NULL;*/
+		free(_cur->env);
+		_rstr_and_jmp(_cur->ctxt);
+	} else {
+		/* recurse until the stack depth is greater than target stack depth */
+		void * padding[64];
+		_coro_restore(sz, target);
 	}
 }
 
@@ -122,33 +113,18 @@ void _coro_enter(coro c)
 		/* return the exited coroutine to the exit handler */
 		coro_call(&_on_exit, _return);
 	}
-	/* this code executes when _coro_enter is called from coro_new */
-INIT_CTXT:
+	else
 	{
-		/* local and new stack pointers at identical relative positions on the stack */
-		intptr_t local_sp = (intptr_t)&local_sp;
-		/* I don't know what the addition "- sizeof(void *)" is for when
-		   the stack grows downards */
-		intptr_t new_sp = c->stack_base +
-			(_stack_grows_up
-				? _frame_offset
-				: c->stack_size - _frame_offset - sizeof(void *));
-
-		/* copy local stack frame to the new stack */
-		_coro_cpframe(local_sp, new_sp);
-
-		/* reset any locals in the saved state to point to the new stack */
-		_coro_rebase(c, local_sp, new_sp);
+		_coro_save(c);
 	}
 }
 
 EXPORT
 coro coro_new(_entry fn)
 {
-	/* FIXME: should not malloc directly? */
 	coro c = (coro)malloc(sizeof(struct _coro));
-	c->stack_size = STACK_DEFAULT;
-	c->stack_base = (intptr_t)malloc(c->stack_size);
+	c->env_size = 0;
+	c->env = NULL;
 	c->start = fn;
 	_coro_enter(c);
 	return c;
@@ -169,82 +145,23 @@ cvalue coro_call(coro target, cvalue value)
 	if (!_save_and_resumed(_cur->ctxt))
 	{
 		/* we are calling someone else, so we set up the environment, and jump to target */
+		intptr_t target_top = (_stack_grows_up
+			? _sp_base + target->env_size
+			: _sp_base - target->env_size);
+		_coro_save(_cur);
 		_cur = target;
-		_rstr_and_jmp(_cur->ctxt);
+		_coro_restore(_cur->env_size, target_top);
 	}
 	/* when someone called us, just return the value */
 	return _value;
 }
 
 EXPORT
-coro coro_clone(coro c)
-{
-	coro cnew = (coro)malloc(sizeof(struct _coro));
-	size_t stack_sz = c->stack_size;
-	intptr_t stack_base = (intptr_t)malloc(stack_sz);
-	cnew->stack_base = stack_base;
-	cnew->stack_size = stack_sz;
-	/* copy the context then the stack data */
-	memcpy(cnew, c, sizeof(struct _coro));
-	memcpy((void *)stack_base, (void *)c->stack_base, stack_sz);
-	/* ensure new context references new stack */
-	_coro_rebase(cnew, c->stack_base, stack_base);
-	return cnew;
-}
-
-EXPORT
 void coro_free(coro c)
 {
-	free((void *)c->stack_base);
-	free(c);
-}
-
-/*
- * Resume execution with a new stack:
- *  1. allocate a new stack
- *  2. copy all relevant data
- *  3. mark save point
- *  4. rebase the context using the new stack
- *  5. restore the context with the new stack
- */
-static void _coro_resume_with(size_t sz)
-{
-	/* allocate bigger stack */
-	intptr_t old_sp = _cur->stack_base;
-	void * new_sp = malloc(sz);
-	memcpy(new_sp, (void *)old_sp, _cur->stack_size);
-	_cur->stack_base = (intptr_t)new_sp;
-	_cur->stack_size = sz;
-	/* save the current context; execution resumes here with new stack */
-	if (!_save_and_resumed(_cur->ctxt))
+	if (c->env != NULL)
 	{
-		/* rebase jmp_buf using new stack */
-		_coro_rebase(_cur, old_sp, (intptr_t)new_sp);
-		_rstr_and_jmp(_cur->ctxt);
+		free((void *)c->env);
 	}
-	free((void *)old_sp);
-}
-
-/*
- * The stack poll uses some hysteresis to avoid thrashing. We grow the stack if
- * there's less than STACK_TGROW bytes left in the current stack, and we only shrink
- * if there's more than STACK_TSHRINK empty.
- */
-EXPORT
-void coro_poll()
-{
-	/* check the current stack pointer */
-	size_t stack_size = _cur->stack_size;
-	size_t empty = (_stack_grows_up
-		? stack_size - ((intptr_t)&empty - _cur->stack_base)
-		: (intptr_t)&empty - _cur->stack_base);
-
-	if (empty < STACK_TGROW)
-	{	/* grow stack */
-		_coro_resume_with(stack_size + STACK_ADJ);
-	}
-	else if (empty > STACK_TSHRINK)
-	{	/* shrink stack */
-		_coro_resume_with(stack_size - STACK_ADJ);
-	}
+	free(c);
 }
