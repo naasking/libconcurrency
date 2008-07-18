@@ -98,14 +98,14 @@ void _coro_save(coro to)
 
 void _coro_restore(size_t sz, intptr_t target)
 {
-	intptr_t top = (intptr_t)&top;
-	if (_stack_grows_up && top > target || !_stack_grows_up && top < target) {
+	int b = (_stack_grows_up ? (intptr_t)&b > target : (intptr_t)&b < target);
+	if (b) {
 		void * sp = (void *)(_stack_grows_up ? _sp_base : _sp_base - sz);
 		memcpy(sp, _cur->env, sz);
 		_rstr_and_jmp(_cur->ctxt);
 	} else {
 		/* recurse until the stack depth is greater than target stack depth */
-		void * padding[64];
+		char * padding[128];
 		_coro_restore(sz, target);
 	}
 }
