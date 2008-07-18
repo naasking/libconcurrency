@@ -30,12 +30,25 @@
 #include "tls.h"
 #include "ctxt.h"
 
+/*
+ * These are thresholds used to grow and shrink the stack. They are scaled by
+ * the size of various platform constants. STACK_TGROW is sized to allow
+ * approximately 200 nested calls. On a 32-bit machine assuming 4 words of
+ * overhead per call, 256 calls = 1024. If stack allocation is performed,
+ * this will need to be increased.
+ */
+#define STACK_TGROW 1024
+#define STACK_DEFAULT sizeof(intptr_t) * STACK_TGROW
+#define STACK_TSHRINK 2 * STACK_DEFAULT
+#define STACK_ADJ STACK_DEFAULT
+
 /* the coroutine structure */
 struct _coro {
 	_ctxt ctxt;
 	_entry start;
 	void * env;
 	size_t env_size;
+	size_t used;
 };
 
 /*
@@ -58,6 +71,8 @@ coro coro_init(void * sp_base)
 {
 	_infer_stack_direction();
 	_sp_base = (intptr_t)sp_base;
+	_on_exit.env_size = STACK_DEFAULT;
+	_on_exit.env = malloc(_on_exit.env_size);
 	_cur = &_on_exit;
 	return _cur;
 }
@@ -67,13 +82,14 @@ void _coro_save(coro to)
 	intptr_t mark = (intptr_t)&mark;
 	void * sp = (void *)(_stack_grows_up ? _sp_base : mark);
 	size_t sz = (_stack_grows_up ? mark - _sp_base : _sp_base - mark);
-	/* copy stack to a save buffer */
-	/*if (to->env != NULL) {
-		perror("Needed to free buffer!\n");
+	if (to->env_size < sz + STACK_TGROW || to->env_size > sz - STACK_TSHRINK)
+	{
+		sz += STACK_ADJ;
 		free(to->env);
-	}*/
-	to->env = malloc(sz);
-	to->env_size = sz;
+		to->env = malloc(sz);
+		to->env_size = sz;
+	}
+	to->used = sz;
 	memcpy(to->env, sp, sz);
 }
 
@@ -83,13 +99,6 @@ void _coro_restore(size_t sz, intptr_t target)
 	if (_stack_grows_up && top > target || !_stack_grows_up && top < target) {
 		void * sp = (void *)(_stack_grows_up ? _sp_base : _sp_base - sz);
 		memcpy(sp, _cur->env, sz);
-		/*if (_cur->env == NULL) {
-			perror("Already freed!\n");
-		} else {
-			free(_cur->env);
-		}
-		_cur->env = NULL;*/
-		free(_cur->env);
 		_rstr_and_jmp(_cur->ctxt);
 	} else {
 		/* recurse until the stack depth is greater than target stack depth */
@@ -123,8 +132,8 @@ EXPORT
 coro coro_new(_entry fn)
 {
 	coro c = (coro)malloc(sizeof(struct _coro));
-	c->env_size = 0;
-	c->env = NULL;
+	c->env_size = STACK_DEFAULT;
+	c->env = malloc(c->env_size);
 	c->start = fn;
 	_coro_enter(c);
 	return c;
@@ -150,7 +159,7 @@ cvalue coro_call(coro target, cvalue value)
 			: _sp_base - target->env_size);
 		_coro_save(_cur);
 		_cur = target;
-		_coro_restore(_cur->env_size, target_top);
+		_coro_restore(_cur->used, target_top);
 	}
 	/* when someone called us, just return the value */
 	return _value;
