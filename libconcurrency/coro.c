@@ -34,7 +34,7 @@
 struct _coro {
 	_ctxt ctxt;
 	_entry start;
-	void ** env;
+	void * env;
 	size_t env_size;
 };
 
@@ -157,6 +157,20 @@ cvalue coro_call(coro target, cvalue value)
 }
 
 EXPORT
+coro coro_clone(coro c)
+{
+	coro cnew = (coro)malloc(sizeof(struct _coro));
+	size_t sz = c->env_size;
+	void * env = malloc(sz);
+	cnew->env = env;
+	cnew->env_size = sz;
+	/* copy the context then the stack data */
+	memcpy(cnew, c, sizeof(struct _coro));
+	memcpy(env, c->env, sz);
+	return cnew;
+}
+
+EXPORT
 void coro_free(coro c)
 {
 	if (c->env != NULL)
@@ -164,4 +178,10 @@ void coro_free(coro c)
 		free((void *)c->env);
 	}
 	free(c);
+}
+
+EXPORT
+void coro_poll()
+{
+	/* no-op */
 }

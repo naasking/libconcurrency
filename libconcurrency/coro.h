@@ -49,9 +49,6 @@ coro coro_init(void * sp_base);
 EXPORT
 coro coro_new(_entry fn);
 
-/*EXPORT
-coro coro_error();*/
-
 /*
  * Invoke a coroutine passing the given value.
  */
@@ -74,7 +71,7 @@ void coro_free(coro c);
  * Poll the current coroutine to ensure sufficient resources are allocated. This
  * should be called periodically to ensure a coroutine doesn't segfault.
  */
-/*EXPORT
-void coro_poll();*/
+EXPORT
+void coro_poll();
 
 #endif /* __CORO_H__ */
