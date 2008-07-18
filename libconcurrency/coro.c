@@ -65,7 +65,7 @@ coro coro_init(void * sp_base)
 void _coro_save(coro to)
 {
 	intptr_t mark = (intptr_t)&mark;
-	void * sp = (void *)(_stack_grows_up ? _sp_base : &mark);
+	void * sp = (void *)(_stack_grows_up ? _sp_base : mark);
 	size_t sz = (_stack_grows_up ? mark - _sp_base : _sp_base - mark);
 	/* copy stack to a save buffer */
 	/*if (to->env != NULL) {
