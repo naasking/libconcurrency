@@ -40,7 +40,7 @@ const cvalue cnone = { NULL };
  * Initialize the coroutine library, returning a coroutine for the thread that called init.
  */
 EXPORT
-coro coro_init();
+coro coro_init(void * sp_base);
 
 /*
  * Create a new coroutine from the given function, and with the
@@ -48,9 +48,6 @@ coro coro_init();
  */
 EXPORT
 coro coro_new(_entry fn);
-
-/*EXPORT
-coro coro_error();*/
 
 /*
  * Invoke a coroutine passing the given value.
@@ -61,8 +58,8 @@ cvalue coro_call(coro target, cvalue value);
 /*
  * Clone a given coroutine. This can be used to implement multishot continuations.
  */
-EXPORT
-coro coro_clone(coro c);
+/*EXPORT
+coro coro_clone(coro c);*/
 
 /*
  * Free the coroutine and return the space for the stack.
