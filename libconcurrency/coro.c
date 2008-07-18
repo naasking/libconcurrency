@@ -48,21 +48,28 @@
 /* the coroutine structure */
 struct _coro {
 	_ctxt ctxt;
-	_entry start;
+	fun f;
 	void * env;
-	size_t env_size;
-	size_t used;
+	size_t env_sz;
+	cvalue * arg;
 };
 
-/*
- * Each of these are local to the kernel thread. Volatile storage is necessary
- * otherwise _value is often cached as a local when switching contexts, so
- * a sequence of calls will always return the first value!
- */
-THREAD_LOCAL volatile coro _cur;
-THREAD_LOCAL volatile cvalue _value;
-THREAD_LOCAL struct _coro _on_exit;
-THREAD_LOCAL static intptr_t _sp_base;
+THREAD_LOCAL static void * _sp_base;
+
+EXPORT
+coro reset(fun f, cvalue v)
+{
+	dcont d = (dcont)malloc(sizeof(struct _dcont));
+	_sp_base = &d;
+	f(c);
+	return 
+}
+
+EXPORT
+void shift(cvalue * v);
+
+EXPORT
+cvalue apply(dcont d, cvalue c);
 
 /*
  * We probe the current machine and extract the data needed to modify the

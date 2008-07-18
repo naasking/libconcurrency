@@ -32,7 +32,7 @@ typedef union _value {
 } cvalue;
 
 /* the type of entry function */
-typedef void (*_entry)(cvalue v);
+typedef cvalue (*fun)(cvalue);
 
 const cvalue cnone = { NULL };
 
@@ -40,38 +40,14 @@ const cvalue cnone = { NULL };
  * Initialize the coroutine library, returning a coroutine for the thread that called init.
  */
 EXPORT
-coro coro_init(void * sp_base);
+coro reset(fun f, cvalue v);
 
-/*
- * Create a new coroutine from the given function, and with the
- * given stack.
- */
 EXPORT
-coro coro_new(_entry fn);
+void shift(cvalue * v);
 
-/*
- * Invoke a coroutine passing the given value.
- */
 EXPORT
-cvalue coro_call(coro target, cvalue value);
+cvalue apply(dcont d, cvalue c);
 
-/*
- * Clone a given coroutine. This can be used to implement multishot continuations.
- */
-/*EXPORT
-coro coro_clone(coro c);*/
-
-/*
- * Free the coroutine and return the space for the stack.
- */
-EXPORT
-void coro_free(coro c);
-
-/*
- * Poll the current coroutine to ensure sufficient resources are allocated. This
- * should be called periodically to ensure a coroutine doesn't segfault.
- */
-EXPORT
-void coro_poll();
+dcont_free(dcont d);
 
 #endif /* __CORO_H__ */
