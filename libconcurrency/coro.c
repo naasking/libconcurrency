@@ -20,6 +20,9 @@
  *    http://www.cs.cmu.edu/~acw/15740/proposal.html
  * 3. Provide an interface to register a coroutine for any errors generated. This is
  *    a type of general Keeper, or exception handling.
+ * 4. Optimizations:
+ *    a) try to implement an underflow handler to lazily restore parts of the stack.
+ *    b) reduce the number of branches to improve branch prediction.
  */
 
 #include <stdio.h>
@@ -192,5 +195,16 @@ void coro_free(coro c)
 EXPORT
 void coro_poll()
 {
-	/* no-op */
+	/* mark stack locations for lazy copying */
+	ptrdiff_t mark = (_stack_grows_up
+		? (intptr_t)&mark - _sp_base
+		: _sp_base - (intptr_t)&mark);
+
+	//mark a setjmp
+	//extract the ip (or extract the return ip from the stack frame)
+	//create a coroutine using that ip as a "void (*f)(void)" function
+	//coro_call it
+	//this jumps back into the original function, which then returns to _coro_enter when done
+	//_coro_enter would then simply coro_call to the exit_handler, which returns here
+	//possible problems: function prologs, clobbered return values.
 }
