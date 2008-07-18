@@ -182,11 +182,11 @@ coro coro_clone(coro c)
 	coro cnew = (coro)malloc(sizeof(struct _coro));
 	size_t stack_sz = c->stack_size;
 	intptr_t stack_base = (intptr_t)malloc(stack_sz);
-	cnew->stack_base = stack_base;
-	cnew->stack_size = stack_sz;
 	/* copy the context then the stack data */
 	memcpy(cnew, c, sizeof(struct _coro));
 	memcpy((void *)stack_base, (void *)c->stack_base, stack_sz);
+	cnew->stack_base = stack_base;
+	cnew->stack_size = stack_sz;
 	/* ensure new context references new stack */
 	_coro_rebase(cnew, c->stack_base, stack_base);
 	return cnew;
