@@ -5,9 +5,10 @@
 
 #include <stdlib.h>
 #include <stddef.h>
-#include <stdint.h>
-#include <coro.h>
-#include "tls.h"
+#include <string.h>
+#include <libconcurrency/stdint.h>
+#include <libconcurrency/coro.h>
+#include <libconcurrency/tls.h>
 #include <windows.h>
 
 /*

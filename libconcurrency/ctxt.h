@@ -30,7 +30,7 @@ static int _offsets_len;
 static int _stack_grows_up;
 
 /* the offset of the beginning of the stack frame in a function */
-static ptrdiff_t _frame_offset;
+static size_t _frame_offset;
 
 /* This probing code is derived from Douglas Jones' user thread library */
 struct _probe_data {
@@ -78,7 +78,7 @@ void fill(struct _probe_data *p)
 static void _infer_jmpbuf_offsets(struct _probe_data *pb)
 {
 	/* following line views jump buffer as array of long intptr_t */
-	int i;
+	unsigned i;
 	intptr_t * p = (intptr_t *)pb->probe_env;
 	intptr_t * sameAR = (intptr_t *)pb->probe_sameAR;
 	intptr_t * samePC = (intptr_t *)pb->probe_samePC;
@@ -95,7 +95,7 @@ static void _infer_jmpbuf_offsets(struct _probe_data *pb)
 			if ((pi - samePCi) == prior_diff) {
 				/* the i'th pointer field in jmp_buf needs to be save/restored */
 				_offsets[_offsets_len++] = i;
-				if (_stack_grows_up && min_frame > pi || !_stack_grows_up && min_frame < pi) {
+				if ((_stack_grows_up && min_frame > pi) || (!_stack_grows_up && min_frame < pi)) {
 					min_frame = pi;
 				}
 			}
@@ -107,12 +107,14 @@ static void _infer_jmpbuf_offsets(struct _probe_data *pb)
 		: min_frame - pb->probe_local);
 }
 
-static void _infer_direction_from(int *first_addr) {
+static void _infer_direction_from(int *first_addr)
+{
 	int second;
 	_stack_grows_up = (first_addr < &second);
 }
 
-static void _infer_stack_direction() {
+static void _infer_stack_direction()
+{
 	int first;
 	_infer_direction_from(&first);
 }

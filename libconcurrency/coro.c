@@ -26,8 +26,9 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <coro.h>
-#include "tls.h"
+#include <string.h>
+#include <libconcurrency/coro.h>
+#include <libconcurrency/tls.h>
 #include "ctxt.h"
 
 /*
@@ -236,8 +237,8 @@ void coro_poll()
 	/* check the current stack pointer */
 	size_t stack_size = _cur->stack_size;
 	size_t empty = (_stack_grows_up
-		? stack_size - ((intptr_t)&empty - _cur->stack_base)
-		: (intptr_t)&empty - _cur->stack_base);
+		? stack_size - ((uintptr_t)&empty - _cur->stack_base)
+		: (uintptr_t)&empty - _cur->stack_base);
 
 	if (empty < STACK_TGROW)
 	{	/* grow stack */
