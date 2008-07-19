@@ -29,8 +29,9 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <coro.h>
-#include "tls.h"
+#include <string.h>
+#include <libconcurrency/coro.h>
+#include <libconcurrency/tls.h>
 #include "ctxt.h"
 
 /*
@@ -62,7 +63,7 @@ struct _coro {
 THREAD_LOCAL volatile coro _cur;
 THREAD_LOCAL volatile cvalue _value;
 THREAD_LOCAL struct _coro _on_exit;
-THREAD_LOCAL static intptr_t _sp_base;
+THREAD_LOCAL intptr_t _sp_base;
 
 /*
  * We probe the current machine and extract the data needed to modify the
@@ -200,11 +201,13 @@ void coro_poll()
 		? (intptr_t)&mark - _sp_base
 		: _sp_base - (intptr_t)&mark);
 
-	//mark a setjmp
-	//extract the ip (or extract the return ip from the stack frame)
-	//create a coroutine using that ip as a "void (*f)(void)" function
-	//coro_call it
-	//this jumps back into the original function, which then returns to _coro_enter when done
-	//_coro_enter would then simply coro_call to the exit_handler, which returns here
-	//possible problems: function prologs, clobbered return values.
+	/*
+	 * mark a setjmp
+	 * extract the ip (or extract the return ip from the stack frame)
+	 * create a coroutine using that ip as a "void (*f)(void)" function
+	 * coro_call it
+	 * this jumps back into the original function, which then returns to _coro_enter when done
+	 * _coro_enter would then simply coro_call to the exit_handler, which returns here
+	 * possible problems: function prologs, clobbered return values.
+	 */
 }

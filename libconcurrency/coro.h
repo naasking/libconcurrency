@@ -18,7 +18,7 @@
  * http://www.yl.is.s.u-tokyo.ac.jp/sthreads/
  */
 
-#include <tls.h>
+#include <libconcurrency/tls.h>
 
 /* a coroutine handle */
 typedef struct _coro *coro;
