@@ -38,6 +38,7 @@ struct _coro {
 	void * env;
 	size_t env_size;
 };
+static cvalue cnone = { NULL };
 
 /*
  * Each of these are local to the kernel thread. Volatile storage is necessary

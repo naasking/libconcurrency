@@ -22,7 +22,7 @@
 #else
 /* assume gcc or compatible compiler */
 #define THREAD_LOCAL __thread
-#define EXPORT static
+#define EXPORT
 
 #endif /* _MSC_VER */
 
