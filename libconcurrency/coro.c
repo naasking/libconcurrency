@@ -50,6 +50,7 @@ struct _coro {
 	intptr_t stack_base;
 	size_t stack_size;
 };
+static cvalue cnone = { NULL };
 
 /*
  * Each of these are local to the kernel thread. Volatile storage is necessary
