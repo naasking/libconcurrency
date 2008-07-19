@@ -21,12 +21,14 @@ typedef jmp_buf _ctxt;
 /* true if stack grows up, false if down */
 static int _stack_grows_up;
 
-static void _infer_direction_from(int *first_addr) {
+static void _infer_direction_from(int *first_addr)
+{
 	int second;
 	_stack_grows_up = (first_addr < &second);
 }
 
-static void _infer_stack_direction() {
+static void _infer_stack_direction()
+{
 	int first;
 	_infer_direction_from(&first);
 }
