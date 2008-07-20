@@ -97,17 +97,17 @@ void _coro_save(coro to, uintptr_t mark)
 	memcpy(to->env, (void *)sp, sz);
 }
 
-void _coro_restore(size_t sz, uintptr_t target, char * pad)
+void _coro_restore(uintptr_t target_sz, void ** pad)
 {
-	int b = (_stack_grows_up ? (uintptr_t)&b > target : (uintptr_t)&b < target);
-	if (b) {
+	if ((uintptr_t)&pad - _sp_base > target_sz) {
+		size_t sz = _cur->used;
 		void * sp = (void *)(_stack_grows_up ? _sp_base : _sp_base - sz);
 		memcpy(sp, _cur->env, sz);
 		_rstr_and_jmp(_cur->ctxt);
 	} else {
 		/* recurse until the stack depth is greater than target stack depth */
-		char padding[128];
-		_coro_restore(sz, target, padding);
+		void * padding[STACK_TGROW];
+		_coro_restore(target_sz, padding);
 	}
 }
 
@@ -128,8 +128,8 @@ void _coro_enter(coro c)
 	}
 	else
 	{
-		void * dummy;
-		_coro_save(c, (intptr_t)&dummy);
+		void * stack_top;
+		_coro_save(c, (intptr_t)&stack_top);
 	}
 }
 
@@ -155,17 +155,16 @@ cvalue coro_call(coro target, cvalue value)
 {
 	/* FIXME: ensure target is on the same proc as cur, else, migrate cur to target->proc */
 	void * stack_top;
-
 	_value = value; /* pass value to 'target' */
 	if (!_save_and_resumed(_cur->ctxt))
 	{
-		/* we are calling someone else, so we set up the environment, and jump to target */
-		uintptr_t target_top = (_stack_grows_up
-			? _sp_base + target->env_size
-			: _sp_base - target->env_size);
+		/* _sp_base - &local is used to calculate the size of the env */
+		uintptr_t target_sz = (_stack_grows_up
+			? target->env_size
+			: -target->env_size);
 		_coro_save(_cur, (uintptr_t)&stack_top);
 		_cur = target;
-		_coro_restore(_cur->used, target_top, NULL);
+		_coro_restore(target_sz, NULL);
 	}
 	/* when someone called us, just return the value */
 	return _value;
