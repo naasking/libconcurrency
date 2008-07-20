@@ -54,6 +54,7 @@ struct _coro {
 	size_t env_size;
 	size_t used;
 };
+static cvalue cnone = { NULL };
 
 /*
  * Each of these are local to the kernel thread. Volatile storage is necessary
@@ -63,7 +64,7 @@ struct _coro {
 THREAD_LOCAL volatile coro _cur;
 THREAD_LOCAL volatile cvalue _value;
 THREAD_LOCAL struct _coro _on_exit;
-THREAD_LOCAL intptr_t _sp_base;
+THREAD_LOCAL uintptr_t _sp_base;
 
 /*
  * We probe the current machine and extract the data needed to modify the
@@ -81,33 +82,32 @@ coro coro_init(void * sp_base)
 	return _cur;
 }
 
-void _coro_save(coro to)
+void _coro_save(coro to, uintptr_t mark)
 {
-	intptr_t mark = (intptr_t)&mark;
-	void * sp = (void *)(_stack_grows_up ? _sp_base : mark);
+	uintptr_t sp = (_stack_grows_up ? _sp_base : mark);
 	size_t sz = (_stack_grows_up ? mark - _sp_base : _sp_base - mark);
 	if (to->env_size < sz + STACK_TGROW || to->env_size > sz - STACK_TSHRINK)
 	{
-		sz += STACK_ADJ;
+		size_t newsz = sz + STACK_ADJ;
 		free(to->env);
-		to->env = malloc(sz);
-		to->env_size = sz;
+		to->env = malloc(newsz);
+		to->env_size = newsz;
 	}
 	to->used = sz;
-	memcpy(to->env, sp, sz);
+	memcpy(to->env, (void *)sp, sz);
 }
 
-void _coro_restore(size_t sz, intptr_t target)
+void _coro_restore(size_t sz, uintptr_t target, char * pad)
 {
-	int b = (_stack_grows_up ? (intptr_t)&b > target : (intptr_t)&b < target);
+	int b = (_stack_grows_up ? (uintptr_t)&b > target : (uintptr_t)&b < target);
 	if (b) {
 		void * sp = (void *)(_stack_grows_up ? _sp_base : _sp_base - sz);
 		memcpy(sp, _cur->env, sz);
 		_rstr_and_jmp(_cur->ctxt);
 	} else {
 		/* recurse until the stack depth is greater than target stack depth */
-		char * padding[128];
-		_coro_restore(sz, target);
+		char padding[128];
+		_coro_restore(sz, target, padding);
 	}
 }
 
@@ -128,7 +128,8 @@ void _coro_enter(coro c)
 	}
 	else
 	{
-		_coro_save(c);
+		void * dummy;
+		_coro_save(c, (intptr_t)&dummy);
 	}
 }
 
@@ -153,17 +154,18 @@ EXPORT
 cvalue coro_call(coro target, cvalue value)
 {
 	/* FIXME: ensure target is on the same proc as cur, else, migrate cur to target->proc */
+	void * stack_top;
 
 	_value = value; /* pass value to 'target' */
 	if (!_save_and_resumed(_cur->ctxt))
 	{
 		/* we are calling someone else, so we set up the environment, and jump to target */
-		intptr_t target_top = (_stack_grows_up
+		uintptr_t target_top = (_stack_grows_up
 			? _sp_base + target->env_size
 			: _sp_base - target->env_size);
-		_coro_save(_cur);
+		_coro_save(_cur, (uintptr_t)&stack_top);
 		_cur = target;
-		_coro_restore(_cur->used, target_top);
+		_coro_restore(_cur->used, target_top, NULL);
 	}
 	/* when someone called us, just return the value */
 	return _value;
